@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lmail - God Mode Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: monospace; background-color: #0f172a; color: #e2e8f0; }
+        .cyber-panel { background: rgba(30, 41, 59, 0.8); border: 1px solid #334155; }
+    </style>
+</head>
+<body class="min-h-screen p-6 flex flex-col items-center">
+
+    <div class="w-full max-w-5xl">
+        <header class="flex justify-between items-end mb-8 border-b border-slate-700 pb-4">
+            <div>
+                <h1 class="text-3xl font-bold text-red-500"><i class="fa-solid fa-skull"></i> LMAIL GOD-MODE</h1>
+                <p class="text-slate-400 text-sm mt-1">Superuser Administrative Access</p>
+            </div>
+            <div class="text-right flex items-center gap-3">
+                <div class="text-xs text-slate-500">ADMIN PASSWORD:</div>
+                <input type="password" id="admin-password" placeholder="Enter password..." class="bg-slate-800 text-white px-3 py-1 rounded border border-slate-600 focus:outline-none focus:border-red-500 text-sm">
+            </div>
+        </header>
+
+        <div class="cyber-panel rounded-lg p-6 mb-8">
+            <h2 class="text-lg font-bold text-yellow-500 mb-2"><i class="fa-solid fa-triangle-exclamation"></i> Authentication Required</h2>
+            <p class="text-sm text-slate-400 mb-4">You must enter the correct master password above to execute commands or fetch database records.</p>
+            
+            <button onclick="loadUsers()" id="load-btn" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded font-bold transition flex items-center gap-2">
+                <i class="fa-solid fa-database"></i> Connect to Database & Fetch Users
+            </button>
+            <div id="status-msg" class="mt-3 text-sm hidden font-bold"></div>
+        </div>
+
+        <div class="cyber-panel rounded-lg overflow-hidden shadow-2xl">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-800 border-b border-slate-700 text-slate-300">
+                        <th class="p-4 font-bold">User Identity (@Lmail)</th>
+                        <th class="p-4 font-bold">Created Date</th>
+                        <th class="p-4 font-bold text-center">Status</th>
+                        <th class="p-4 font-bold text-right">Admin Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="user-table-body" class="text-sm">
+                    <tr>
+                        <td colspan="4" class="p-8 text-center text-slate-500">
+                            Enter the password and click 'Connect to Database' to populate.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function showStatus(msg, isError) {
+            const statusEl = document.getElementById('status-msg');
+            statusEl.textContent = msg;
+            statusEl.className = `mt-3 text-sm block font-bold ${isError ? 'text-red-400' : 'text-green-400'}`;
+        }
+
+        // Core Fetch Engine for Admin Commands using Password
+        async function adminCommand(action, payload = {}) {
+            const password = document.getElementById('admin-password').value;
+            
+            if (!password) {
+                throw new Error("Please enter the Admin Password first.");
+            }
+
+            const response = await fetch('/api/admin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: action,
+                    admin_password: password,
+                    ...payload
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Admin action failed.');
+            return data;
+        }
+
+        async function loadUsers() {
+            const btn = document.getElementById('load-btn');
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Authenticating...`;
+            showStatus('', false);
+
+            try {
+                const data = await adminCommand('list_users');
+                renderTable(data.users);
+                showStatus('Database Connection Successful. Data synchronized.', false);
+            } catch (error) {
+                showStatus('ACCESS DENIED: ' + error.message, true);
+                document.getElementById('user-table-body').innerHTML = `
+                    <tr><td colspan="4" class="p-8 text-center text-red-500 font-bold bg-red-900/20"><i class="fa-solid fa-ban text-2xl mb-2 block"></i> ${error.message}</td></tr>
+                `;
+            } finally {
+                btn.innerHTML = `<i class="fa-solid fa-database"></i> Refresh Database`;
+            }
+        }
+
+        function renderTable(users) {
+            const tbody = document.getElementById('user-table-body');
+            tbody.innerHTML = '';
+            
+            if (users.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-slate-500">No users found in database.</td></tr>`;
+                return;
+            }
+
+            users.forEach(user => {
+                const isBlocked = user.blocked;
+                const tr = document.createElement('tr');
+                tr.className = `border-b border-slate-700/50 hover:bg-slate-800/50 transition ${isBlocked ? 'bg-red-900/10' : ''}`;
+                
+                const date = new Date(user.created_at).toLocaleDateString();
+
+                tr.innerHTML = `
+                    <td class="p-4 font-bold ${isBlocked ? 'text-red-400 line-through' : 'text-blue-300'}">${user.email}</td>
+                    <td class="p-4 text-slate-400">${date}</td>
+                    <td class="p-4 text-center">
+                        ${isBlocked 
+                            ? '<span class="bg-red-900 text-red-300 px-2 py-1 rounded text-xs border border-red-700"><i class="fa-solid fa-lock"></i> BLOCKED</span>' 
+                            : '<span class="bg-green-900 text-green-300 px-2 py-1 rounded text-xs border border-green-700"><i class="fa-solid fa-check"></i> ACTIVE</span>'}
+                    </td>
+                    <td class="p-4 text-right">
+                        <button onclick="toggleBlock('${user.email}')" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded text-xs font-bold text-white transition">
+                            ${isBlocked ? '<i class="fa-solid fa-unlock"></i> Unblock Account' : '<i class="fa-solid fa-ban"></i> Block Account'}
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function toggleBlock(email) {
+            if(confirm(`Are you sure you want to toggle the block status for ${email}?`)) {
+                try {
+                    const res = await adminCommand('toggle_block_user', { target_email: email });
+                    alert(res.message);
+                    loadUsers(); // Refresh the table
+                } catch (e) {
+                    alert('Error: ' + e.message);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+
