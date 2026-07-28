@@ -51,116 +51,36 @@ export default async function handler(req, res) {
             return res.status(401).json({ error: 'Invalid password.' });
         }
 
-        // --- ACTION: GENERATE CORPORATE GHOST PROXY ---
-        if (action === 'generate_proxy') {
-            // 1. Fetch available rotating domains from the Mail.gw API
-            const domainRes = await fetch('https://api.mail.gw/domains?page=1');
-            const domainData = await domainRes.json();
-            
-            if (!domainData['hydra:member'] || domainData['hydra:member'].length === 0) {
-                throw new Error("Proxy node servers are currently full. Please try again in a minute.");
-            }
-            
-            const activeDomain = domainData['hydra:member'][0].domain;
-            
-            // 2. Generate cryptographically random account credentials
-            const randomHex = crypto.randomBytes(4).toString('hex');
-            const proxyAddress = `node.${randomHex}@${activeDomain}`;
-            const proxyPassword = crypto.randomBytes(12).toString('hex');
-
-            // 3. Create the inbox physically on the external server
-            const createRes = await fetch('https://api.mail.gw/accounts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ address: proxyAddress, password: proxyPassword })
-            });
-
-            if (!createRes.ok) throw new Error("Failed to register corporate node on network.");
-
-            // 4. Secure an Access Token for fetching mail later
-            const tokenRes = await fetch('https://api.mail.gw/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ address: proxyAddress, password: proxyPassword })
-            });
-            
-            const tokenData = await tokenRes.json();
-            const proxyToken = tokenData.token;
-
-            // 5. Save mapping in Redis as Address::Token
+        // --- ACTION: SAVE PROXY (Triggered by frontend Residential IP) ---
+        if (action === 'save_proxy') {
+            const { proxyAddress, proxyToken } = req.body;
             await redisCommand("SADD", `user_proxies:${safeEmail}`, `${proxyAddress}::${proxyToken}`);
-            
-            return res.status(200).json({ success: true, proxy: proxyAddress });
+            return res.status(200).json({ success: true });
         }
 
-        // --- ACTION: FETCH INBOX (Pulls from Ghost API & Redis) ---
+        // --- ACTION: SAVE EMAIL (Permanently store mail fetched by frontend) ---
+        if (action === 'save_email') {
+            const { emailData } = req.body;
+            // Prevent duplicates
+            const isProcessed = await redisCommand("GET", `processed_msg:${emailData.id}`);
+            if (!isProcessed) {
+                await redisCommand("LPUSH", `inbox:${safeEmail}`, JSON.stringify(emailData));
+                await redisCommand("SETEX", `processed_msg:${emailData.id}`, 604800, "true"); // cache for 7 days
+            }
+            return res.status(200).json({ success: true });
+        }
+
+        // --- ACTION: FETCH INBOX (Retrieve permanent emails and tokens) ---
         if (action === 'get_inbox') {
-            const redisKey = `inbox:${safeEmail}`;
-            
-            // 1. Check Ghost API for new messages sent to any of this user's proxies
+            // Return tokens so the frontend can check for new mail directly
             const userProxies = await redisCommand("SMEMBERS", `user_proxies:${safeEmail}`) || [];
             
-            for (let proxyData of userProxies) {
-                // Split the stored string back into email and token
-                const [proxyAddress, proxyToken] = proxyData.split('::');
-                if (!proxyToken) continue;
-
-                try {
-                    // Fetch list of messages using the secure token
-                    const checkRes = await fetch('https://api.mail.gw/messages', {
-                        headers: { 'Authorization': `Bearer ${proxyToken}` }
-                    });
-                    
-                    if (!checkRes.ok) continue; // Skip if token expired or server error
-                    const messagesData = await checkRes.json();
-                    const messages = messagesData['hydra:member'] || [];
-
-                    for (let msg of messages) {
-                        // Avoid downloading duplicates
-                        const isProcessed = await redisCommand("GET", `processed_msg:${msg.id}`);
-                        if (!isProcessed) {
-                            // Fetch the full email payload
-                            const fullMsgRes = await fetch(`https://api.mail.gw/messages/${msg.id}`, {
-                                headers: { 'Authorization': `Bearer ${proxyToken}` }
-                            });
-                            const fullMsg = await fullMsgRes.json();
-
-                            // Determine body (Text or HTML fallback)
-                            let bodyContent = "No Content Available.";
-                            if (fullMsg.text) {
-                                bodyContent = fullMsg.text;
-                            } else if (fullMsg.html && fullMsg.html.length > 0) {
-                                bodyContent = fullMsg.html[0];
-                            }
-
-                            const emailData = {
-                                id: msg.id,
-                                from: fullMsg.from.address,
-                                subject: fullMsg.subject || "No Subject",
-                                body: bodyContent,
-                                date: fullMsg.createdAt,
-                                delivered_to: safeEmail // Mask it for the UI
-                            };
-
-                            // Save to secure Redis Inbox
-                            await redisCommand("LPUSH", redisKey, JSON.stringify(emailData));
-                            // Mark processed (expires in 7 days to keep Redis clean)
-                            await redisCommand("SETEX", `processed_msg:${msg.id}`, 604800, "true");
-                        }
-                    }
-                } catch (e) {
-                    console.error("Node API Sync Error for", proxyAddress, e);
-                }
-            }
-
-            // 2. Retrieve all synced emails from Redis
-            const emailsRaw = await redisCommand("LRANGE", redisKey, 0, 49); // Keep last 50
+            // Return permanent emails
+            const emailsRaw = await redisCommand("LRANGE", `inbox:${safeEmail}`, 0, 49); // Keep last 50
             let emails = (emailsRaw || []).map(str => JSON.parse(str));
-            
-            // Sort newest first
             emails.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-            return res.status(200).json({ success: true, emails: emails });
+            return res.status(200).json({ success: true, proxies: userProxies, emails: emails });
         }
         
         // --- ACTION: CLEAR INBOX ---
