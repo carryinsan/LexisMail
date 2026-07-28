@@ -142,6 +142,11 @@
     <script>
         document.getElementById('user-email-display').textContent = userEmail;
 
+        function logout() {
+            localStorage.clear(); 
+            window.location.replace('/');
+        }
+
         function switchTab(tabId) {
             document.getElementById('section-inbox').classList.add('hidden');
             document.getElementById('section-apps').classList.add('hidden');
@@ -171,12 +176,13 @@
             btnElement.disabled = true;
 
             try {
-                // Call Vercel backend to generate the professional node address
                 const response = await fetch('/api/inbox', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'generate_proxy', email: userEmail, password: userPassword })
                 });
+
+                if (response.status === 401) { logout(); return; } // SELF-HEALING: Auto-logout on bad password
 
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error);
@@ -218,6 +224,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'get_inbox', email: userEmail, password: userPassword })
                 });
+
+                if (response.status === 401) { logout(); return; } // SELF-HEALING: Auto-logout on bad password
 
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || "Failed to fetch inbox.");
@@ -268,6 +276,9 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'clear_inbox', email: userEmail, password: userPassword })
                 });
+                
+                if (response.status === 401) { logout(); return; } // SELF-HEALING: Auto-logout on bad password
+                
                 if (response.ok) loadInbox();
             } catch (e) { alert("Error clearing inbox."); }
         }
@@ -283,6 +294,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'get_dashboard', token: token })
                 });
+
+                if (response.status === 401) { logout(); return; } // SELF-HEALING
 
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error);
@@ -313,11 +326,6 @@
             } catch (error) {
                 container.innerHTML = `<div class="p-4 bg-red-50 text-red-600 rounded-lg border border-red-200">Error loading apps. Session may have expired.</div>`;
             }
-        }
-
-        function logout() {
-            localStorage.clear(); 
-            window.location.replace('/');
         }
 
         loadInbox();
