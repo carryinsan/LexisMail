@@ -14,25 +14,20 @@
         .tab-inactive:hover { background-color: #1e293b; color: white; }
     </style>
 
-    <!-- PRE-FLIGHT SECURITY CHECK: Runs before the body renders to prevent screen flashing -->
+    <!-- PRE-FLIGHT SECURITY CHECK -->
     <script>
         const userEmail = localStorage.getItem('lmail_email');
         const token = localStorage.getItem('lmail_token');
         let userPassword = localStorage.getItem('lmail_password');
 
-        // 1. Strict Check: If core identity is completely missing, redirect to root safely
-        if (!userEmail || !token) {
-            window.location.replace('/');
-        }
+        if (!userEmail || !token) { window.location.replace('/'); }
         
-        // 2. Fail-Safe: If the browser cached the old index.html and didn't save the password
         if (userEmail && token && (!userPassword || userPassword === 'undefined')) {
             const enteredPassword = prompt("Lmail Security: Please verify your password to decrypt your inbox data.");
             if (enteredPassword) {
                 userPassword = enteredPassword.trim();
                 localStorage.setItem('lmail_password', userPassword);
             } else {
-                // If they refuse to provide the password, send them to login safely
                 window.location.replace('/');
             }
         }
@@ -78,25 +73,24 @@
 
         <!-- Content Area -->
         <div class="p-6 overflow-y-auto flex-grow bg-slate-50 relative">
-            
             <div class="max-w-4xl mx-auto w-full">
                 
                 <!-- INBOX SECTION -->
                 <div id="section-inbox" class="block space-y-6">
                     
-                    <!-- The Proxy Generator Card -->
+                    <!-- The Proxy Generator Card (GMAIL REMOVED COMPLETELY) -->
                     <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow-lg border border-slate-700 p-6 text-white">
                         <div class="flex items-start gap-4">
-                            <div class="bg-blue-500/20 p-3 rounded-lg text-blue-400"><i class="fa-solid fa-mask text-2xl"></i></div>
+                            <div class="bg-blue-500/20 p-3 rounded-lg text-blue-400"><i class="fa-solid fa-network-wired text-2xl"></i></div>
                             <div class="flex-grow">
-                                <h2 class="text-lg font-bold mb-1">Stealth Proxy Generator</h2>
+                                <h2 class="text-lg font-bold mb-1">Lmail Routing Node</h2>
                                 <p class="text-sm text-slate-400 mb-4">
-                                    Need to verify an account on a strict site? Generate a stealth routing proxy. Emails sent to this proxy will instantly appear in your inbox below, while hiding your true identity. Every generation is cryptographically unique.
+                                    Need to verify an account on a strict site like Tavily? Generate a secure server node below. It looks like a normal corporate email, perfectly bypassing strict security filters. Mails sent here appear directly in your inbox.
                                 </p>
                                 <div class="flex gap-2">
                                     <input type="text" id="proxy-display" readonly class="flex-grow bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-green-400 font-mono text-sm focus:outline-none" value="Click Generate...">
-                                    <button onclick="generateProxy()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition flex items-center gap-2 whitespace-nowrap">
-                                        <i class="fa-solid fa-wand-magic-sparkles"></i> Generate & Copy
+                                    <button onclick="generateProxy(this)" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition flex items-center gap-2 whitespace-nowrap">
+                                        <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Node
                                     </button>
                                 </div>
                             </div>
@@ -108,7 +102,7 @@
                         <h2 class="text-lg font-bold text-slate-800">Recent Messages</h2>
                         <div class="flex gap-2">
                             <button onclick="loadInbox()" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow-sm">
-                                <i class="fa-solid fa-rotate-right"></i> Refresh
+                                <i class="fa-solid fa-rotate-right"></i> Refresh Sync
                             </button>
                             <button onclick="clearInbox()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow-sm">
                                 <i class="fa-solid fa-trash-can"></i> Clear All
@@ -146,11 +140,8 @@
     </main>
 
     <script>
-        // --- Setup Dashboard Data ---
         document.getElementById('user-email-display').textContent = userEmail;
-        const rawUsername = userEmail ? userEmail.split('@')[0] : 'user';
 
-        // --- UI Logic ---
         function switchTab(tabId) {
             document.getElementById('section-inbox').classList.add('hidden');
             document.getElementById('section-apps').classList.add('hidden');
@@ -171,57 +162,55 @@
             }
         }
 
-        // --- Master Stealth: Dot Randomizer Algorithm ---
-        function generateProxy() {
-            const masterAccount = "thestarsofstarsptpn";
-            let randomizedBase = "";
+        // --- Master Stealth: Ghost API Generation ---
+        async function generateProxy(btnElement) {
+            const displayInput = document.getElementById('proxy-display');
+            const originalHtml = btnElement.innerHTML;
+            
+            btnElement.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating...`;
+            btnElement.disabled = true;
 
             try {
-                // Algorithm: Loop through the master string and randomly inject dots
-                // Rules: No dot at the very start, no dot at the very end, no consecutive dots.
-                for (let i = 0; i < masterAccount.length; i++) {
-                    randomizedBase += masterAccount[i];
-                    
-                    if (i < masterAccount.length - 1 && Math.random() > 0.6) {
-                        randomizedBase += ".";
-                    }
+                // Call Vercel backend to generate the professional node address
+                const response = await fetch('/api/inbox', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'generate_proxy', email: userEmail, password: userPassword })
+                });
+
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error);
+
+                const proxyAddress = data.proxy;
+                displayInput.value = proxyAddress;
+                
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(proxyAddress);
+                } else {
+                    displayInput.select();
+                    document.execCommand('copy');
                 }
+
+                btnElement.innerHTML = `<i class="fa-solid fa-check"></i> Copied!`;
+                btnElement.classList.replace('bg-blue-600', 'bg-green-600');
+                btnElement.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
+                
             } catch (error) {
-                console.error("Dot randomizer failed, using fallback.", error);
-                randomizedBase = masterAccount;
+                alert("Failed to generate node: " + error.message);
+            } finally {
+                setTimeout(() => {
+                    btnElement.innerHTML = originalHtml;
+                    btnElement.disabled = false;
+                    btnElement.classList.replace('bg-green-600', 'bg-blue-600');
+                    btnElement.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
+                }, 2000);
             }
-
-            const proxyAddress = `${randomizedBase}+${rawUsername}@gmail.com`;
-            
-            const displayInput = document.getElementById('proxy-display');
-            displayInput.value = proxyAddress;
-            
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(proxyAddress).then(() => animateCopyButton(event.currentTarget));
-            } else {
-                displayInput.select();
-                document.execCommand('copy');
-                animateCopyButton(event.currentTarget);
-            }
-        }
-
-        function animateCopyButton(btn) {
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = `<i class="fa-solid fa-check"></i> Copied!`;
-            btn.classList.replace('bg-blue-600', 'bg-green-600');
-            btn.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
-            
-            setTimeout(() => {
-                btn.innerHTML = originalHtml;
-                btn.classList.replace('bg-green-600', 'bg-blue-600');
-                btn.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
-            }, 2000);
         }
 
         // --- Inbox API Logic ---
         async function loadInbox() {
             const container = document.getElementById('email-container');
-            container.innerHTML = `<div class="text-center py-12 text-slate-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p>Syncing secure inbox...</p></div>`;
+            container.innerHTML = `<div class="text-center py-12 text-slate-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p>Pulling data from Lmail nodes...</p></div>`;
 
             try {
                 const response = await fetch('/api/inbox', {
@@ -238,9 +227,9 @@
                 if (!data.emails || data.emails.length === 0) {
                     container.innerHTML = `
                         <div class="text-center py-16 bg-white rounded-xl border border-dashed border-slate-300">
-                            <div class="text-slate-300 mb-3"><i class="fa-solid fa-envelope-open text-4xl"></i></div>
+                            <div class="text-slate-300 mb-3"><i class="fa-solid fa-server text-4xl"></i></div>
                             <h3 class="text-slate-700 font-semibold text-lg">Inbox is empty</h3>
-                            <p class="text-sm text-slate-500 max-w-sm mx-auto mt-1">Use the Stealth Proxy Generator above to receive emails from strict third-party services securely.</p>
+                            <p class="text-sm text-slate-500 max-w-sm mx-auto mt-1">Generate an Lmail Routing Node above and paste it into any website to securely receive mail.</p>
                         </div>
                     `;
                     return;
@@ -249,7 +238,7 @@
                 data.emails.forEach(email => {
                     const dateStr = new Date(email.date).toLocaleString();
                     let linkedBody = email.body || "";
-                    linkedBody = linkedBody.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-600 hover:underline font-semibold">$1 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i></a>');
+                    linkedBody = linkedBody.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-600 hover:underline font-semibold">$1</a>');
 
                     const mailCard = document.createElement('div');
                     mailCard.className = 'bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:border-blue-300 transition group';
@@ -261,7 +250,7 @@
                             </div>
                             <div class="text-xs font-semibold text-slate-400 bg-white px-2 py-1 rounded border border-slate-200 shadow-sm">${dateStr}</div>
                         </div>
-                        <div class="p-5 text-sm text-slate-700 whitespace-pre-wrap hidden bg-white">${linkedBody}</div>
+                        <div class="p-5 text-sm text-slate-700 whitespace-pre-wrap hidden bg-white overflow-x-auto">${linkedBody}</div>
                     `;
                     container.appendChild(mailCard);
                 });
@@ -273,14 +262,12 @@
 
         async function clearInbox() {
             if(!confirm("Are you sure you want to permanently delete all emails?")) return;
-            
             try {
                 const response = await fetch('/api/inbox', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'clear_inbox', email: userEmail, password: userPassword })
                 });
-                
                 if (response.ok) loadInbox();
             } catch (e) { alert("Error clearing inbox."); }
         }
@@ -298,7 +285,7 @@
                 });
 
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error || "Failed to load apps.");
+                if (!response.ok) throw new Error(data.error);
 
                 container.innerHTML = ''; 
                 if (!data.connected_apps || data.connected_apps.length === 0) {
@@ -321,9 +308,7 @@
                             </div>
                         `;
                         container.appendChild(appCard);
-                    } catch(e) {
-                        console.error("Failed parsing an app connection.", e);
-                    }
+                    } catch(e) {}
                 });
             } catch (error) {
                 container.innerHTML = `<div class="p-4 bg-red-50 text-red-600 rounded-lg border border-red-200">Error loading apps. Session may have expired.</div>`;
@@ -335,7 +320,6 @@
             window.location.replace('/');
         }
 
-        // Initialize Inbox on load
         loadInbox();
     </script>
 </body>
