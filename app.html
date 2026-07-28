@@ -13,6 +13,30 @@
         .tab-inactive { color: #94a3b8; }
         .tab-inactive:hover { background-color: #1e293b; color: white; }
     </style>
+
+    <!-- PRE-FLIGHT SECURITY CHECK: Runs before the body renders to prevent screen flashing -->
+    <script>
+        const userEmail = localStorage.getItem('lmail_email');
+        const token = localStorage.getItem('lmail_token');
+        let userPassword = localStorage.getItem('lmail_password');
+
+        // 1. Strict Check: If core identity is completely missing, redirect to root safely
+        if (!userEmail || !token) {
+            window.location.replace('/');
+        }
+        
+        // 2. Fail-Safe: If the browser cached the old index.html and didn't save the password
+        if (userEmail && token && (!userPassword || userPassword === 'undefined')) {
+            const enteredPassword = prompt("Lmail Security: Please verify your password to decrypt your inbox data.");
+            if (enteredPassword) {
+                userPassword = enteredPassword.trim();
+                localStorage.setItem('lmail_password', userPassword);
+            } else {
+                // If they refuse to provide the password, send them to login safely
+                window.location.replace('/');
+            }
+        }
+    </script>
 </head>
 <body class="flex h-screen overflow-hidden text-slate-800">
 
@@ -122,20 +146,9 @@
     </main>
 
     <script>
-        // --- Security & Setup ---
-        const userEmail = localStorage.getItem('lmail_email');
-        const userPassword = localStorage.getItem('lmail_password'); 
-        const token = localStorage.getItem('lmail_token');
-
-        // Fail-safe redirect if user is not properly logged in
-        if (!userEmail || !userPassword || !token) {
-            window.location.href = 'index.html';
-        }
-
+        // --- Setup Dashboard Data ---
         document.getElementById('user-email-display').textContent = userEmail;
-
-        // Extract raw username (e.g., 'elon' from 'elon@lmail.com')
-        const rawUsername = userEmail.split('@')[0];
+        const rawUsername = userEmail ? userEmail.split('@')[0] : 'user';
 
         // --- UI Logic ---
         function switchTab(tabId) {
@@ -169,28 +182,23 @@
                 for (let i = 0; i < masterAccount.length; i++) {
                     randomizedBase += masterAccount[i];
                     
-                    // 40% chance to insert a dot, but ONLY if we aren't at the last character
                     if (i < masterAccount.length - 1 && Math.random() > 0.6) {
                         randomizedBase += ".";
                     }
                 }
             } catch (error) {
-                // Absolute Fail-Safe: If randomizer errors, fallback to standard string
                 console.error("Dot randomizer failed, using fallback.", error);
                 randomizedBase = masterAccount;
             }
 
-            // Combine the randomized base with the user's alias
             const proxyAddress = `${randomizedBase}+${rawUsername}@gmail.com`;
             
             const displayInput = document.getElementById('proxy-display');
             displayInput.value = proxyAddress;
             
-            // Native Clipboard API (Fail-safe with old execCommand fallback if needed)
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(proxyAddress).then(() => animateCopyButton(event.currentTarget));
             } else {
-                // Legacy fallback for non-https/older browsers
                 displayInput.select();
                 document.execCommand('copy');
                 animateCopyButton(event.currentTarget);
@@ -225,7 +233,7 @@
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || "Failed to fetch inbox.");
 
-                container.innerHTML = ''; // Clear loading
+                container.innerHTML = ''; 
 
                 if (!data.emails || data.emails.length === 0) {
                     container.innerHTML = `
@@ -240,8 +248,6 @@
 
                 data.emails.forEach(email => {
                     const dateStr = new Date(email.date).toLocaleString();
-                    
-                    // Create a clickable link if a URL is found in the body (basic regex fail-safe)
                     let linkedBody = email.body || "";
                     linkedBody = linkedBody.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-600 hover:underline font-semibold">$1 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i></a>');
 
@@ -325,8 +331,8 @@
         }
 
         function logout() {
-            localStorage.clear(); // Wipe sensitive session data
-            window.location.href = 'index.html';
+            localStorage.clear(); 
+            window.location.replace('/');
         }
 
         // Initialize Inbox on load
