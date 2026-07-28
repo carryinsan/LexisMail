@@ -1,13 +1,10 @@
 import crypto from 'crypto';
 
-// Securely read keys from Vercel Environment Variables
 const REDIS_URL = process.env.REDIS_URL;
 const REDIS_TOKEN = process.env.REDIS_TOKEN;
 
 async function redisCommand(command, ...args) {
-    if (!REDIS_URL || !REDIS_TOKEN) {
-        throw new Error("Server configuration error: Redis keys are missing.");
-    }
+    if (!REDIS_URL || !REDIS_TOKEN) throw new Error("Server configuration error: Redis keys missing.");
     const response = await fetch(REDIS_URL, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${REDIS_TOKEN}`, 'Content-Type': 'application/json' },
@@ -33,54 +30,42 @@ export default async function handler(req, res) {
 
     try {
         const { action, email, password } = req.body;
-
         if (!email || !password) return res.status(401).json({ error: 'Authentication required.' });
 
         let safeEmail = email.trim().toLowerCase();
         if (!safeEmail.includes('@')) safeEmail += '@lmail.com';
         else safeEmail = safeEmail.split('@')[0] + '@lmail.com';
 
-        // STRICT SECURITY: Verify User identity
         const userDataStr = await redisCommand("GET", `user:${safeEmail}`);
         if (!userDataStr) return res.status(404).json({ error: 'Account not found.' });
 
         const userProfile = JSON.parse(userDataStr);
         if (userProfile.blocked) return res.status(403).json({ error: 'Account blocked.' });
+        if (!verifyPassword(password.trim(), userProfile.password_hash)) return res.status(401).json({ error: 'Invalid password.' });
 
-        if (!verifyPassword(password.trim(), userProfile.password_hash)) {
-            return res.status(401).json({ error: 'Invalid password.' });
-        }
-
-        // --- ACTION: SAVE PROXY (Triggered by frontend Residential IP) ---
-        if (action === 'save_proxy') {
-            const { proxyAddress, proxyToken } = req.body;
-            await redisCommand("SADD", `user_proxies:${safeEmail}`, `${proxyAddress}::${proxyToken}`);
-            return res.status(200).json({ success: true });
-        }
-
-        // --- ACTION: SAVE EMAIL (Permanently store mail fetched by frontend) ---
-        if (action === 'save_email') {
-            const { emailData } = req.body;
-            // Prevent duplicates
-            const isProcessed = await redisCommand("GET", `processed_msg:${emailData.id}`);
-            if (!isProcessed) {
-                await redisCommand("LPUSH", `inbox:${safeEmail}`, JSON.stringify(emailData));
-                await redisCommand("SETEX", `processed_msg:${emailData.id}`, 604800, "true"); // cache for 7 days
-            }
-            return res.status(200).json({ success: true });
-        }
-
-        // --- ACTION: FETCH INBOX (Retrieve permanent emails and tokens) ---
-        if (action === 'get_inbox') {
-            // Return tokens so the frontend can check for new mail directly
-            const userProxies = await redisCommand("SMEMBERS", `user_proxies:${safeEmail}`) || [];
+        // --- ACTION: GENERATE TROJAN RELAY NODE ---
+        if (action === 'generate_proxy') {
+            const base = "thestarsofstarsptpn";
+            let trojanBase = base[0];
             
-            // Return permanent emails
-            const emailsRaw = await redisCommand("LRANGE", `inbox:${safeEmail}`, 0, 49); // Keep last 50
-            let emails = (emailsRaw || []).map(str => JSON.parse(str));
-            emails.sort((a, b) => new Date(b.date) - new Date(a.date));
+            // Mathematically injects dots without creating illegal consecutive dots
+            for (let i = 1; i < base.length; i++) {
+                if (Math.random() > 0.5) trojanBase += ".";
+                trojanBase += base[i];
+            }
+            const trojanEmail = `${trojanBase}@gmail.com`;
 
-            return res.status(200).json({ success: true, proxies: userProxies, emails: emails });
+            // Save the exact dot-mapping to Redis so the Google Script knows who this belongs to (Expires in 7 days)
+            await redisCommand("SETEX", `trojan:${trojanEmail}`, 604800, safeEmail);
+            
+            return res.status(200).json({ success: true, proxy: trojanEmail });
+        }
+
+        // --- ACTION: FETCH INBOX ---
+        if (action === 'get_inbox') {
+            const emailsRaw = await redisCommand("LRANGE", `inbox:${safeEmail}`, 0, 49);
+            let emails = (emailsRaw || []).map(str => JSON.parse(str));
+            return res.status(200).json({ success: true, emails: emails });
         }
         
         // --- ACTION: CLEAR INBOX ---
