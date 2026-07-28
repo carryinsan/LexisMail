@@ -78,14 +78,14 @@
                 <!-- INBOX SECTION -->
                 <div id="section-inbox" class="block space-y-6">
                     
-                    <!-- The Proxy Generator Card (GMAIL REMOVED COMPLETELY) -->
+                    <!-- The Proxy Generator Card (CORPORATE ROUTING ENGINE) -->
                     <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow-lg border border-slate-700 p-6 text-white">
                         <div class="flex items-start gap-4">
-                            <div class="bg-blue-500/20 p-3 rounded-lg text-blue-400"><i class="fa-solid fa-network-wired text-2xl"></i></div>
+                            <div class="bg-blue-500/20 p-3 rounded-lg text-blue-400"><i class="fa-solid fa-building-shield text-2xl"></i></div>
                             <div class="flex-grow">
-                                <h2 class="text-lg font-bold mb-1">Lmail Routing Node</h2>
+                                <h2 class="text-lg font-bold mb-1">Corporate Routing Node</h2>
                                 <p class="text-sm text-slate-400 mb-4">
-                                    Need to verify an account on a strict site like Tavily? Generate a secure server node below. It looks like a normal corporate email, perfectly bypassing strict security filters. Mails sent here appear directly in your inbox.
+                                    Need to verify an account on an ultra-strict site like Tavily or Supabase? Generate a secure server node below. It uses rotating enterprise domains to perfectly bypass all security filters.
                                 </p>
                                 <div class="flex gap-2">
                                     <input type="text" id="proxy-display" readonly class="flex-grow bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-green-400 font-mono text-sm focus:outline-none" value="Click Generate...">
@@ -182,7 +182,7 @@
                     body: JSON.stringify({ action: 'generate_proxy', email: userEmail, password: userPassword })
                 });
 
-                if (response.status === 401) { logout(); return; } // SELF-HEALING: Auto-logout on bad password
+                if (response.status === 401) { logout(); return; } 
 
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error);
@@ -216,7 +216,7 @@
         // --- Inbox API Logic ---
         async function loadInbox() {
             const container = document.getElementById('email-container');
-            container.innerHTML = `<div class="text-center py-12 text-slate-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p>Pulling data from Lmail nodes...</p></div>`;
+            container.innerHTML = `<div class="text-center py-12 text-slate-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p>Pulling data from Corporate Nodes...</p></div>`;
 
             try {
                 const response = await fetch('/api/inbox', {
@@ -225,7 +225,7 @@
                     body: JSON.stringify({ action: 'get_inbox', email: userEmail, password: userPassword })
                 });
 
-                if (response.status === 401) { logout(); return; } // SELF-HEALING: Auto-logout on bad password
+                if (response.status === 401) { logout(); return; } 
 
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || "Failed to fetch inbox.");
@@ -237,7 +237,7 @@
                         <div class="text-center py-16 bg-white rounded-xl border border-dashed border-slate-300">
                             <div class="text-slate-300 mb-3"><i class="fa-solid fa-server text-4xl"></i></div>
                             <h3 class="text-slate-700 font-semibold text-lg">Inbox is empty</h3>
-                            <p class="text-sm text-slate-500 max-w-sm mx-auto mt-1">Generate an Lmail Routing Node above and paste it into any website to securely receive mail.</p>
+                            <p class="text-sm text-slate-500 max-w-sm mx-auto mt-1">Generate a Corporate Routing Node above and paste it into strict websites like Supabase or Tavily to securely receive mail.</p>
                         </div>
                     `;
                     return;
@@ -245,6 +245,8 @@
 
                 data.emails.forEach(email => {
                     const dateStr = new Date(email.date).toLocaleString();
+                    
+                    // Fail-safe regex to auto-link URLs in plain-text emails
                     let linkedBody = email.body || "";
                     linkedBody = linkedBody.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-600 hover:underline font-semibold">$1</a>');
 
@@ -277,8 +279,7 @@
                     body: JSON.stringify({ action: 'clear_inbox', email: userEmail, password: userPassword })
                 });
                 
-                if (response.status === 401) { logout(); return; } // SELF-HEALING: Auto-logout on bad password
-                
+                if (response.status === 401) { logout(); return; } 
                 if (response.ok) loadInbox();
             } catch (e) { alert("Error clearing inbox."); }
         }
@@ -295,7 +296,7 @@
                     body: JSON.stringify({ action: 'get_dashboard', token: token })
                 });
 
-                if (response.status === 401) { logout(); return; } // SELF-HEALING
+                if (response.status === 401) { logout(); return; } 
 
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error);
