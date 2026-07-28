@@ -14,7 +14,6 @@
         .tab-inactive:hover { background-color: #1e293b; color: white; }
     </style>
 
-    <!-- PRE-FLIGHT SECURITY CHECK -->
     <script>
         const userEmail = localStorage.getItem('lmail_email');
         const token = localStorage.getItem('lmail_token');
@@ -35,12 +34,10 @@
 </head>
 <body class="flex h-screen overflow-hidden text-slate-800">
 
-    <!-- Sidebar -->
     <aside class="w-64 bg-slate-900 text-white flex flex-col hidden md:flex">
         <div class="p-6 text-2xl font-bold text-blue-400 flex items-center gap-2 border-b border-slate-800">
             <i class="fa-solid fa-envelope-open-text"></i> Lmail
         </div>
-        
         <nav class="flex-grow p-4 space-y-2">
             <button onclick="switchTab('inbox')" id="tab-inbox" class="w-full flex items-center gap-3 p-3 rounded-lg tab-active transition shadow-lg">
                 <i class="fa-solid fa-inbox w-5"></i> Secure Inbox
@@ -49,7 +46,6 @@
                 <i class="fa-solid fa-shield-halved w-5"></i> Connected Apps
             </button>
         </nav>
-
         <div class="p-4 border-t border-slate-800">
             <button onclick="logout()" class="w-full flex items-center justify-center gap-2 p-2 rounded-lg text-red-400 hover:bg-red-400/10 transition font-semibold">
                 <i class="fa-solid fa-right-from-bracket"></i> Logout
@@ -57,10 +53,7 @@
         </div>
     </aside>
 
-    <!-- Main Content -->
     <main class="flex-grow flex flex-col h-screen">
-        
-        <!-- Header -->
         <header class="bg-white shadow-sm h-16 flex items-center justify-between px-6 border-b border-slate-200">
             <h1 class="text-xl font-bold" id="page-title">Secure Inbox</h1>
             <div class="flex items-center gap-3">
@@ -71,14 +64,10 @@
             </div>
         </header>
 
-        <!-- Content Area -->
         <div class="p-6 overflow-y-auto flex-grow bg-slate-50 relative">
             <div class="max-w-4xl mx-auto w-full">
                 
-                <!-- INBOX SECTION -->
                 <div id="section-inbox" class="block space-y-6">
-                    
-                    <!-- The Proxy Generator Card (CORPORATE ROUTING ENGINE) -->
                     <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow-lg border border-slate-700 p-6 text-white">
                         <div class="flex items-start gap-4">
                             <div class="bg-blue-500/20 p-3 rounded-lg text-blue-400"><i class="fa-solid fa-building-shield text-2xl"></i></div>
@@ -97,7 +86,6 @@
                         </div>
                     </div>
 
-                    <!-- Inbox Controls -->
                     <div class="flex justify-between items-end">
                         <h2 class="text-lg font-bold text-slate-800">Recent Messages</h2>
                         <div class="flex gap-2">
@@ -110,7 +98,6 @@
                         </div>
                     </div>
 
-                    <!-- Email List Container -->
                     <div id="email-container" class="space-y-4">
                         <div class="text-center py-12 text-slate-400" id="inbox-loading">
                             <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
@@ -119,18 +106,11 @@
                     </div>
                 </div>
 
-                <!-- CONNECTED APPS SECTION -->
                 <div id="section-apps" class="hidden">
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
                         <h2 class="text-lg font-bold text-slate-800 mb-2">OAuth Connections</h2>
-                        <p class="text-sm text-slate-500 mb-6">
-                            These are the external websites you have securely logged into using the <strong>"Sign in with Lmail"</strong> feature.
-                        </p>
                         <div id="apps-container" class="space-y-4">
-                            <div class="text-center py-8 text-slate-400">
-                                <i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>
-                                <p>Loading connections...</p>
-                            </div>
+                            <div class="text-center py-8 text-slate-400">Loading connections...</div>
                         </div>
                     </div>
                 </div>
@@ -167,7 +147,7 @@
             }
         }
 
-        // --- Master Stealth: Ghost API Generation ---
+        // --- Residential IP Bypass: Ghost API Generation ---
         async function generateProxy(btnElement) {
             const displayInput = document.getElementById('proxy-display');
             const originalHtml = btnElement.innerHTML;
@@ -176,20 +156,43 @@
             btnElement.disabled = true;
 
             try {
-                const response = await fetch('/api/inbox', {
+                // 1. Fetch domain securely from browser to bypass Vercel datacenter block
+                const domainRes = await fetch('https://api.mail.tm/domains?page=1');
+                if (!domainRes.ok) throw new Error("Node network overloaded. Try again in a minute.");
+                const domainData = await domainRes.json();
+                const activeDomain = domainData['hydra:member'][0].domain;
+
+                // 2. Generate Credentials
+                const randomHex = Math.random().toString(36).substring(2, 10);
+                const proxyAddress = `node.${randomHex}@${activeDomain}`;
+                const proxyPassword = Math.random().toString(36).substring(2, 15);
+
+                // 3. Register Account on External Server
+                const createRes = await fetch('https://api.mail.tm/accounts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'generate_proxy', email: userEmail, password: userPassword })
+                    body: JSON.stringify({ address: proxyAddress, password: proxyPassword })
+                });
+                if (!createRes.ok) throw new Error("Failed to register node.");
+
+                // 4. Secure Access Token
+                const tokenRes = await fetch('https://api.mail.tm/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: proxyAddress, password: proxyPassword })
+                });
+                const tokenData = await tokenRes.json();
+                const proxyToken = tokenData.token;
+
+                // 5. Send to Vercel ONLY for secure safekeeping
+                await fetch('/api/inbox', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'save_proxy', email: userEmail, password: userPassword, proxyAddress, proxyToken })
                 });
 
-                if (response.status === 401) { logout(); return; } 
-
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error);
-
-                const proxyAddress = data.proxy;
+                // Display success to user
                 displayInput.value = proxyAddress;
-                
                 if (navigator.clipboard && window.isSecureContext) {
                     navigator.clipboard.writeText(proxyAddress);
                 } else {
@@ -199,7 +202,6 @@
 
                 btnElement.innerHTML = `<i class="fa-solid fa-check"></i> Copied!`;
                 btnElement.classList.replace('bg-blue-600', 'bg-green-600');
-                btnElement.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
                 
             } catch (error) {
                 alert("Failed to generate node: " + error.message);
@@ -208,31 +210,83 @@
                     btnElement.innerHTML = originalHtml;
                     btnElement.disabled = false;
                     btnElement.classList.replace('bg-green-600', 'bg-blue-600');
-                    btnElement.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
                 }, 2000);
             }
         }
 
-        // --- Inbox API Logic ---
+        // --- Client-Side Mail Fetcher (Bypasses Datacenter IP Blocks completely) ---
         async function loadInbox() {
             const container = document.getElementById('email-container');
-            container.innerHTML = `<div class="text-center py-12 text-slate-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p>Pulling data from Corporate Nodes...</p></div>`;
+            container.innerHTML = `<div class="text-center py-12 text-slate-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p>Scanning nodes for incoming mail...</p></div>`;
 
             try {
+                // 1. Get previously saved emails and proxy tokens from Vercel
                 const response = await fetch('/api/inbox', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'get_inbox', email: userEmail, password: userPassword })
                 });
-
                 if (response.status === 401) { logout(); return; } 
-
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error || "Failed to fetch inbox.");
+                if (!response.ok) throw new Error(data.error);
 
+                let allEmails = data.emails || [];
+                const proxies = data.proxies || [];
+                let hasNewMail = false;
+
+                // 2. Client-Side Background Sync: Checks mail.tm directly via residential IP!
+                for (let proxyData of proxies) {
+                    const parts = proxyData.split('::');
+                    const pToken = parts[1];
+                    if (!pToken) continue;
+
+                    try {
+                        const checkRes = await fetch('https://api.mail.tm/messages', {
+                            headers: { 'Authorization': `Bearer ${pToken}` }
+                        });
+                        if (!checkRes.ok) continue;
+                        
+                        const msgData = await checkRes.json();
+                        const msgs = msgData['hydra:member'] || [];
+
+                        for (let msg of msgs) {
+                            // If this email isn't in our system yet, fetch the body
+                            if (!allEmails.find(e => e.id === msg.id)) {
+                                const fullMsgRes = await fetch(`https://api.mail.tm/messages/${msg.id}`, {
+                                    headers: { 'Authorization': `Bearer ${pToken}` }
+                                });
+                                const fullMsg = await fullMsgRes.json();
+                                
+                                let bodyContent = "No Content Available.";
+                                if (fullMsg.text) bodyContent = fullMsg.text;
+                                else if (fullMsg.html && fullMsg.html.length > 0) bodyContent = fullMsg.html[0];
+
+                                const newEmail = {
+                                    id: msg.id,
+                                    from: fullMsg.from.address,
+                                    subject: fullMsg.subject || "No Subject",
+                                    body: bodyContent,
+                                    date: fullMsg.createdAt,
+                                    delivered_to: userEmail
+                                };
+                                
+                                allEmails.push(newEmail);
+                                hasNewMail = true;
+
+                                // Send to Vercel to save permanently in your Redis database
+                                await fetch('/api/inbox', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'save_email', email: userEmail, password: userPassword, emailData: newEmail })
+                                });
+                            }
+                        }
+                    } catch (e) { console.error("Sync error", e); }
+                }
+
+                // Render UI
                 container.innerHTML = ''; 
-
-                if (!data.emails || data.emails.length === 0) {
+                if (allEmails.length === 0) {
                     container.innerHTML = `
                         <div class="text-center py-16 bg-white rounded-xl border border-dashed border-slate-300">
                             <div class="text-slate-300 mb-3"><i class="fa-solid fa-server text-4xl"></i></div>
@@ -243,10 +297,10 @@
                     return;
                 }
 
-                data.emails.forEach(email => {
+                if (hasNewMail) allEmails.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                allEmails.forEach(email => {
                     const dateStr = new Date(email.date).toLocaleString();
-                    
-                    // Fail-safe regex to auto-link URLs in plain-text emails
                     let linkedBody = email.body || "";
                     linkedBody = linkedBody.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-600 hover:underline font-semibold">$1</a>');
 
@@ -278,7 +332,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'clear_inbox', email: userEmail, password: userPassword })
                 });
-                
                 if (response.status === 401) { logout(); return; } 
                 if (response.ok) loadInbox();
             } catch (e) { alert("Error clearing inbox."); }
@@ -288,25 +341,20 @@
         async function loadApps() {
             const container = document.getElementById('apps-container');
             container.innerHTML = `<div class="text-center py-8 text-slate-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p>Loading connections...</p></div>`;
-
             try {
                 const response = await fetch('/api/auth', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'get_dashboard', token: token })
                 });
-
                 if (response.status === 401) { logout(); return; } 
-
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error);
-
                 container.innerHTML = ''; 
                 if (!data.connected_apps || data.connected_apps.length === 0) {
                     container.innerHTML = `<div class="text-center py-10 bg-slate-50 rounded-lg border border-dashed border-slate-300"><div class="text-slate-400 mb-2"><i class="fa-solid fa-link-slash text-3xl"></i></div><h3 class="text-slate-700 font-semibold">No apps connected yet</h3></div>`;
                     return;
                 }
-
                 data.connected_apps.forEach(appString => {
                     try {
                         const appData = JSON.parse(appString);
@@ -315,18 +363,12 @@
                         appCard.innerHTML = `
                             <div class="flex items-center gap-4">
                                 <div class="h-10 w-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xl border border-blue-100"><i class="fa-solid fa-globe"></i></div>
-                                <div>
-                                    <h4 class="font-bold text-slate-800">${appData.name || "Unknown App"}</h4>
-                                    <a href="${appData.url}" target="_blank" class="text-xs font-semibold text-blue-500 hover:underline">${appData.url || "#"}</a>
-                                </div>
-                            </div>
-                        `;
+                                <div><h4 class="font-bold text-slate-800">${appData.name || "Unknown App"}</h4><a href="${appData.url}" target="_blank" class="text-xs font-semibold text-blue-500 hover:underline">${appData.url || "#"}</a></div>
+                            </div>`;
                         container.appendChild(appCard);
                     } catch(e) {}
                 });
-            } catch (error) {
-                container.innerHTML = `<div class="p-4 bg-red-50 text-red-600 rounded-lg border border-red-200">Error loading apps. Session may have expired.</div>`;
-            }
+            } catch (error) { container.innerHTML = `<div class="p-4 bg-red-50 text-red-600 rounded-lg border border-red-200">Error loading apps. Session may have expired.</div>`; }
         }
 
         loadInbox();
